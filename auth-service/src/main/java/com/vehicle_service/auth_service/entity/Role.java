@@ -1,4 +1,6 @@
 package com.vehicle_service.auth_service.entity;
 
-public class Role {
+public enum Role {
+    ROLE_USER,
+    ROLE_ADMIN
 }
