@@ -4,6 +4,7 @@ import com.vehicle_service.auth_service.entity.Role;
 import com.vehicle_service.auth_service.entity.User;
 import com.vehicle_service.auth_service.repository.UserRepository;
 import com.vehicle_service.auth_service.security.JwtService;
+import com.vehicle_service.auth_service.service.CustomUserDetailsService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -30,6 +31,9 @@ public class AuthController {
     private UserRepository userRepository;
 
     @Autowired
+    private CustomUserDetailsService customUserDetailsService;
+
+    @Autowired
     private JwtService jwtService;
 
     @GetMapping("/test-secure")
@@ -47,19 +51,35 @@ public class AuthController {
         return ResponseEntity.ok("User Registered Successfully");
     }
 
+    @PostMapping("/register-admin")
+    public ResponseEntity<String> registerAdmin(@RequestBody User user) {
+        user.setPassword(new BCryptPasswordEncoder().encode(user.getPassword()));
+        user.setRole(Role.ROLE_ADMIN);
+        userRepository.save(user);
+
+        return ResponseEntity.ok("Admin Registered Successfully");
+    }
+
+
     @PostMapping("/login")
     public ResponseEntity<String> login(@RequestBody Map<String, String> credentials){
         try {
+
+            String username = credentials.get("username");
+            String password = credentials.get("password");
+
             authenticationManager.authenticate(
-                    new UsernamePasswordAuthenticationToken(credentials.get("email"), credentials.get("password"))
+                    new UsernamePasswordAuthenticationToken(username,password)
             );
 
-            UserDetails userDetails = userRepository.findByEmail(credentials.get("email"))
-                    .map(user -> new org.springframework.security.core.userdetails.User(
-                            user.getEmail(), user.getPassword(), List.of(new SimpleGrantedAuthority(user.getRole().name())))
-                    ).orElseThrow(() ->
-                            new UsernameNotFoundException("User not found")
-                    );
+            UserDetails userDetails = customUserDetailsService.loadUserByUsername(username);
+
+//            UserDetails userDetails = userRepository.findByUsername(credentials.get("username"))
+//                    .map(user -> new org.springframework.security.core.userdetails.User(
+//                            user.getUsername(), user.getPassword(), List.of(new SimpleGrantedAuthority(user.getRole().name())))
+//                    ).orElseThrow(() ->
+//                            new UsernameNotFoundException("User not found")
+//                    );
 
             return ResponseEntity.ok(jwtService.generateToken(userDetails));
         } catch (Exception e) {
